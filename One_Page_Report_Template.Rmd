@@ -1,0 +1,54 @@
+---
+title: "Title"
+subtitle: 'V1'
+author: "Name & student number"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r, warning=FALSE, message=FALSE}
+
+# load libraries
+library(dplyr)
+library(readxl)
+library(janitor)
+library(ggplot2)
+library(skimr)
+library(stringr)
+```
+
+
+# Description
+
+# Headline
+
+The following plot....
+
+
+```{r, warning=FALSE, message=FALSE}
+
+```
+
+Explanation of the plot...
+
+# Comments
+
+- Anything the reader needs to be aware of, warnings, applicability, doe the results make sense
+
+
+# Suggestions for further explorations
+
+- Next steps, etc
+
+# References
+
+- Links to any sources used, etc
+
+# Appendix: sessionInfo
+
+```{r}
+sessionInfo()
+```
+
