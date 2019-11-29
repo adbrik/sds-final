@@ -21,6 +21,8 @@ library(maps)
 library(mapdata)
 library(plotly)
 library(sf)
+library(ggthemes)
+library(ggpubr)
 
 Sys.setenv('MAPBOX_TOKEN' = 'pk.eyJ1IjoiYXJpa2IwIiwiYSI6ImNrM2V5djl2cDAwbzkzZG5sMG16ZndnbmYifQ.BfoEKQZ2gykEJvFmt1xe8Q')
 ```
@@ -34,22 +36,46 @@ The following plot....
 
 
 ```{r, warning=FALSE, message=FALSE}
-listings <- read.csv("listings-summarized.csv")
-neighbourhoods <- read.csv("neighbourhoods.csv")
-all_listings <-read.csv("listings.csv")
+listings <- read.csv("data/listings-summarized.csv")
+neighbourhoods <- read.csv("data/neighbourhoods.csv")
+all_listings <-read.csv("data/listings.csv")
 
-ottawawards <- read_sf("Wards.shp")
+ottawawards <- read_sf("data/Wards.shp")
 
-ottawawards %>% ggplot() +
-  geom_sf() + 
-  theme_nothing()
+ditch_the_axes <- theme(
+  axis.text = element_blank(),
+  axis.line = element_blank(),
+  axis.ticks = element_blank(),
+  panel.border = element_blank(),
+  panel.grid = element_blank(),
+  axis.title = element_blank(),
+  panel.background = element_rect(fill = "white", colour = "white")
+)
 
+ottawawards$WARD_NAME_[ottawawards$WARD_NAME_ == "Orléans"] <- "Orleans"
+ottawawards$WARD_NAME_[ottawawards$WARD_NAME_ == "West Carleton – March"] <- "West Carleton-March"
+ottawawards$WARD_NAME_[ottawawards$WARD_NAME_ == "Stittsville"] <- "Stittsville-Kanata West"
 
+ottawawards <- ottawawards %>%
+  left_join(count(listings,neighbourhood),c("WARD_NAME_"="neighbourhood"))
 
+ottawawards %>% ggplot() + 
+  geom_sf(aes(fill=n),color = "white") +
+  scale_fill_gradient(low = "light blue", high = "dark blue") +
+  ditch_the_axes
 
-#dat <- map_data("world", "canada")
-#ggplot() + geom_polygon(data = dat, aes(x=long, y = lat, group = group)) + 
-#  coord_fixed(1.3)
+df_listing_sum <- listings %>% 
+  group_by(neighbourhood, room_type) %>% 
+  summarize(sum = n()) %>%
+  group_by(neighbourhood) %>%
+  mutate(total=sum(sum)) %>%
+  mutate(percent=total/nrow(listings))
+  
+df_listing_sum %>%
+  ggplot(aes(x=reorder(neighbourhood,total),y=sum,fill=room_type)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  theme_minimal()
 
 p <- listings %>%
   plot_mapbox(lat = ~latitude, lon = ~longitude,
@@ -58,11 +84,56 @@ p <- listings %>%
               layout(mapbox = list(zoom = 9,
                        center = list(lat = ~median(latitude),
                                      lon = ~median(longitude))))
-
-
 p
 ```
 
+```{R}
+cal <- read.csv("data/calendar.csv") %>%
+  filter(as.Date(date) < as.Date("2019-11-01")) %>%
+  filter(available =="f")
+
+reviews <- read.csv("data/reviews.csv") %>%
+  filter(as.Date(date) > as.Date("2019-01-01"))
+
+rev <- reviews %>% count(listing_id)
+
+#getting rid of not active listings, i.e havent been reviewd since hte beging of the year and have less than 1 review per month
+df_activity <- listings %>% filter(number_of_reviews != 0) %>%
+  filter(as.Date(last_review) > as.Date("2018-12-31")) %>%
+  select(id,neighbourhood,minimum_nights,price,reviews_per_month,number_of_reviews,room_type) %>% 
+  mutate(
+    min_price_per_month = if_else(
+      #((minimum_nights > 30) & (reviews_per_month > 0.8)),
+      minimum_nights * reviews_per_month > 30,
+      price * minimum_nights / 30,
+      reviews_per_month * price * minimum_nights
+      )
+    )
+
+df_minimum_activity <- df_activity %>%
+  group_by(neighbourhood,room_type) %>%
+  summarise(average=mean(min_price_per_month))
+
+df_minimum_activity %>% ggplot(aes(x=reorder(neighbourhood,average),y=average,fill=room_type)) +
+  geom_bar(stat="identity",position = "dodge") +
+  coord_flip() +
+  theme_minimal()
+
+generateGraphMinPrice <- function(name,colour) {
+  df_minimum_activity %>% filter(room_type==name) %>%
+    ggplot(aes(x=reorder(neighbourhood,average),y=average,fill=room_type)) +
+    geom_bar(stat="identity",position = "dodge",fill=colour) +
+    coord_flip() +
+    theme_minimal()
+}
+
+a <- generateGraphMinPrice("Entire home/apt","red")
+b <- generateGraphMinPrice("Hotel room","green")
+c <- generateGraphMinPrice("Private room","cyan")
+d <- generateGraphMinPrice("Shared room","blue")
+#df_amount_listings <- listings %>% distinct(host_id,calculated_host_listings_count)%>% filter(calculated_host_listings_count > 2)
+ggarrange(a,b,c,d+rremove("x.text"),ncol =2,nrow = 2,labels=c("Entire home/apt","Hotel room","Private room","Shared room"),common.legend = TRUE,legend = "bottom")
+```
 Explanation of the plot...
 
 # Comments
