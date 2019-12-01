@@ -1,0 +1,186 @@
+---
+title: "Title"
+subtitle: 'V1'
+author: "Name & student number"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r, warning=FALSE, message=FALSE}
+#https://stackoverflow.com/questions/18931006/how-to-suppress-warning-messages-when-loading-a-library
+silent <- suppressPackageStartupMessages
+# load libraries
+silent(library(dplyr))
+silent(library(readxl))
+silent(library(janitor))
+silent(library(ggplot2))
+silent(library(skimr))
+silent(library(readr))
+silent(library(stringr))
+silent(library(readxl))
+silent(library(tidyr))
+silent(library(tidyverse))
+silent(library(lubridate))
+silent(library(quantmod))
+silent(library(scales))
+silent(library(zoo))
+
+
+# install.packages("tm")  # for text mining
+# install.packages("SnowballC") # for text stemming
+# install.packages("wordcloud") # word-cloud generator 
+# install.packages("RColorBrewer") # color palettes
+
+silent(library("tm"))
+silent(library("SnowballC"))
+silent(library("wordcloud"))
+silent(library("RColorBrewer"))
+
+```
+
+
+# Description
+
+# Headline
+
+The following plot....
+
+
+```{r, warning=FALSE, message=FALSE}
+df_sum <- read_csv("data/listings-summarized.csv")
+ggplot(df_sum, aes(factor(neighbourhood), price)) + geom_violin(aes(fill = factor(neighbourhood)))
+
+
+ggplot(df_sum, aes(factor(neighbourhood), price)) + geom_violin(aes(fill = factor(neighbourhood))) + coord_flip()
+
+ggplot(df_sum, aes(price, colour = neighbourhood, group = neighbourhood)) + geom_density(fill=NA) 
+
+
+df_sum2 <- df_sum %>% group_by(neighbourhood, room_type) %>% 
+  summarize(price = mean(price)) %>%
+  tidyr::complete(neighbourhood, room_type = c("Hotel room", "Entire home/apt", 
+                                               "Private room",
+                                               "Shared room"), fill = list(price = 0))
+  
+  
+
+ggplot(df_sum2, aes(x = neighbourhood, y= price, col = room_type, group = room_type)) + geom_line() + scale_y_log10() + coord_flip() + 
+  labs(y='Average listing price',
+       x = 'Neighbourhood')
+
+
+
+calendar_df <- read_csv("data/calendar.csv")
+
+res <- calendar_df %>%
+  group_by(date, available) %>%
+  summarize(count = n()) %>%
+  subset(available != FALSE)
+
+#https://www.r-bloggers.com/calendar-heatmaps-in-ggplot/
+cal_hotmap_df <- res %>% mutate(year = year(date),
+         month = month(date, label = TRUE),
+         wkday = fct_relevel(wday(date, label=TRUE),
+                             c("Mon", "Tue","Wed","Thu","Fri","Sat","Sun")
+                             ),
+         day = day(date),
+         wk = format(date, "%W")) %>%
+  select(year, month, wkday, day, wk, count) 
+
+
+
+cal_hotmap_df %>% 
+    ggplot(aes(wk, wkday, fill=count)) +
+      geom_tile(color='black') +
+      geom_text(aes(label=day), size=3) + 
+      labs(x='', 
+           y='',
+           title="SPY") +
+      scale_fill_gradient(low="red", high="green")+
+      theme(panel.background = element_blank(),
+            axis.ticks = element_blank(),
+            axis.text.x = element_blank(),
+            strip.background = element_rect("grey92")
+            ) +
+      facet_grid(year~month, scales="free", space="free")
+
+
+#how many days of the year are available?
+#show calendar hotmap of popular days
+
+
+#per listing, what is the % of the year that it is available? 
+res2 <- calendar_df %>%
+  group_by(listing_id, available, minimum_nights) %>%
+  summarize(avail_perc = round((n()/365)*100)) %>%
+  subset(available != FALSE)
+
+ggplot(df_sum, aes(x=neighbourhood, y=minimum_nights)) + geom_boxplot(aes(fill=neighbourhood)) + scale_y_log10() + coord_flip()
+
+#Exploring reviews -- Are there certain characteristics that customers value in a listing?
+#http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know
+review_df <- read.csv("data/reviews.csv", encoding = "UTF-8")
+
+review_corpus <- Corpus(VectorSource(review_df[1:15000,]$comments))
+
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
+
+review_corpus <- review_corpus %>% 
+  tm_map(toSpace, "/") %>%
+  tm_map(toSpace, "@") %>%
+  tm_map(toSpace, "\\|") %>%
+  tm_map(content_transformer(tolower)) %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removeWords, stopwords("English")) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(stripWhitespace)
+
+#Build a term-document matrix
+dtm <- TermDocumentMatrix(review_corpus)
+
+m <- as.matrix(dtm)
+
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 10)
+ 
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq,min.freq = 1,max.words=200, random.order=FALSE, rot.per=0.35,colors=brewer.pal(8, "Dark2"))
+
+#parsing ottawa housing price pdf
+#https://datascienceplus.com/extracting-tables-from-pdfs-in-r-using-the-tabulizer-package/
+install.packages("tabulizer")
+library(tabulizer)
+
+location <- 'https://documents.ottawa.ca/sites/documents/files/RAS_RMA-en.pdf'
+
+output <- extract_tables(
+    file   = "RAS_RMA-en.pdf", 
+    method = "decide", 
+    output = "data.frame")
+
+```
+
+Explanation of the plot...
+
+# Comments
+
+- Anything the reader needs to be aware of, warnings, applicability, doe the results make sense
+
+
+# Suggestions for further explorations
+
+- Next steps, etc
+
+# References
+
+- Links to any sources used, etc
+
+# Appendix: sessionInfo
+
+```{r}
+sessionInfo()
+```
+

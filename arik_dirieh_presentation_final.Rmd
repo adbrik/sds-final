@@ -1,14 +1,16 @@
 ---
-title: "Title"
-subtitle: 'V1'
-author: "Name & student number"
+title: "Airbnb"
+subtitle: 'Ottawa'
+author: "Arik Barenboim 300024372 & Dirieh Mahdi Ali"
 date: "`r Sys.Date()`"
 output: 
-  html_document:
-    code_folding: hide
+  slidy_presentation:
+    code_folding: true
+    theme: united
+    highlight: tango
 ---
 
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE,echo = FALSE}
 
 # load libraries
 library(dplyr)
@@ -28,14 +30,9 @@ Sys.setenv('MAPBOX_TOKEN' = 'pk.eyJ1IjoiYXJpa2IwIiwiYSI6ImNrM2V5djl2cDAwbzkzZG5s
 ```
 
 
-# Description
+# Graph 1
 
-# Headline
-
-The following plot....
-
-
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE,echo = FALSE}
 listings <- read.csv("data/listings-summarized.csv")
 neighbourhoods <- read.csv("data/neighbourhoods.csv")
 all_listings <-read.csv("data/listings.csv")
@@ -59,7 +56,7 @@ ottawawards$WARD_NAME_[ottawawards$WARD_NAME_ == "Stittsville"] <- "Stittsville-
 ottawawards <- ottawawards %>%
   left_join(count(listings,neighbourhood),c("WARD_NAME_"="neighbourhood"))
 
-ottawawards %>% ggplot() + 
+graph1 <- ottawawards %>% ggplot() + 
   geom_sf(aes(fill=n),color = "white") +
   scale_fill_gradient(low = "light blue", high = "dark blue") +
   ditch_the_axes
@@ -71,23 +68,24 @@ df_listing_sum <- listings %>%
   mutate(total=sum(sum)) %>%
   mutate(percent=total/nrow(listings))
   
-df_listing_sum %>%
+graph2 <- df_listing_sum %>%
   ggplot(aes(x=reorder(neighbourhood,total),y=sum,fill=room_type)) +
   geom_bar(stat="identity") +
   coord_flip() +
   theme_minimal()
 
-p <- listings %>%
+graph3 <- listings %>%
   plot_mapbox(lat = ~latitude, lon = ~longitude,
               split = ~room_type, size=2,
               mode = 'scattermapbox', hoverinfo="price") %>%
               layout(mapbox = list(zoom = 9,
                        center = list(lat = ~median(latitude),
                                      lon = ~median(longitude))))
-p
+
+graph1
 ```
 
-```{R}
+```{r, echo = FALSE}
 cal <- read.csv("data/calendar.csv") %>%
   filter(as.Date(date) < as.Date("2019-11-01")) %>%
   filter(available =="f")
@@ -114,7 +112,7 @@ df_minimum_activity <- df_activity %>%
   group_by(neighbourhood,room_type) %>%
   summarise(average=mean(min_price_per_month))
 
-df_minimum_activity %>% ggplot(aes(x=reorder(neighbourhood,average),y=average,fill=room_type)) +
+graph4 <- df_minimum_activity %>% ggplot(aes(x=reorder(neighbourhood,average),y=average,fill=room_type)) +
   geom_bar(stat="identity",position = "dodge") +
   coord_flip() +
   theme_minimal()
@@ -132,22 +130,32 @@ b <- generateGraphMinPrice("Hotel room","green")
 c <- generateGraphMinPrice("Private room","cyan")
 d <- generateGraphMinPrice("Shared room","blue")
 #df_amount_listings <- listings %>% distinct(host_id,calculated_host_listings_count)%>% filter(calculated_host_listings_count > 2)
-ggarrange(a,b,c,d+rremove("x.text"),ncol =2,nrow = 2,labels=c("Entire home/apt","Hotel room","Private room","Shared room"),common.legend = TRUE,legend = "bottom")
+graph5 <- ggarrange(a,b,c,d+rremove("x.text"),ncol =2,nrow = 2,labels=c("Entire home/apt","Hotel room","Private room","Shared room"),common.legend = TRUE,legend = "bottom")
 ```
-Explanation of the plot...
 
-# Comments
+# graph2
 
-- Anything the reader needs to be aware of, warnings, applicability, doe the results make sense
+```{r,echo = FALSE}
+graph2
+```
 
+# graph3
 
-# Suggestions for further explorations
+```{r,echo = FALSE}
+graph3
+```
 
-- Next steps, etc
+# graph4
 
-# References
+```{r,echo = FALSE}
+graph4
+```
 
-- Links to any sources used, etc
+# graph5
+
+```{r,echo = FALSE}
+graph5
+```
 
 # Appendix: sessionInfo
 
