@@ -121,33 +121,6 @@ ggplot(df_sum, aes(x=neighbourhood, y=minimum_nights)) + geom_boxplot(aes(fill=n
 
 #Exploring reviews -- Are there certain characteristics that customers value in a listing?
 #http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know
-review_df <- read.csv("data/reviews.csv", encoding = "UTF-8")
-
-review_corpus <- Corpus(VectorSource(review_df[1:15000,]$comments))
-
-toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
-
-review_corpus <- review_corpus %>% 
-  tm_map(toSpace, "/") %>%
-  tm_map(toSpace, "@") %>%
-  tm_map(toSpace, "\\|") %>%
-  tm_map(content_transformer(tolower)) %>%
-  tm_map(removeNumbers) %>%
-  tm_map(removeWords, stopwords("English")) %>%
-  tm_map(removePunctuation) %>%
-  tm_map(stripWhitespace)
-
-#Build a term-document matrix
-dtm <- TermDocumentMatrix(review_corpus)
-
-m <- as.matrix(dtm)
-
-v <- sort(rowSums(m),decreasing=TRUE)
-d <- data.frame(word = names(v),freq=v)
-head(d, 10)
- 
-set.seed(1234)
-wordcloud(words = d$word, freq = d$freq,min.freq = 1,max.words=200, random.order=FALSE, rot.per=0.35,colors=brewer.pal(8, "Dark2"))
 
 #parsing ottawa housing price pdf
 #https://datascienceplus.com/extracting-tables-from-pdfs-in-r-using-the-tabulizer-package/

@@ -1,7 +1,7 @@
 ---
 title: "Airbnb"
 subtitle: 'Ottawa'
-author: "Arik Barenboim 300024372 & Dirieh Mahdi Ali"
+author: "Arik Barenboim 300024372 & Dirieh Mahdi Ali 300017745"
 date: "`r Sys.Date()`"
 output: 
   slidy_presentation:
@@ -9,7 +9,7 @@ output:
     theme: united
     highlight: tango
 ---
-
+# What are People Saying?
 ```{r, warning=FALSE, message=FALSE,echo = FALSE}
 
 # load libraries
@@ -25,12 +25,18 @@ library(plotly)
 library(sf)
 library(ggthemes)
 library(ggpubr)
+library(lubridate)
+library(quantmod)
+library(scales)
+library(tidyverse)
+library(zoo)
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(RColorBrewer)
 
 Sys.setenv('MAPBOX_TOKEN' = 'pk.eyJ1IjoiYXJpa2IwIiwiYSI6ImNrM2V5djl2cDAwbzkzZG5sMG16ZndnbmYifQ.BfoEKQZ2gykEJvFmt1xe8Q')
 ```
-
-
-# Graph 1
 
 ```{r, warning=FALSE, message=FALSE,echo = FALSE}
 listings <- read.csv("data/listings-summarized.csv")
@@ -59,7 +65,9 @@ ottawawards <- ottawawards %>%
 graph1 <- ottawawards %>% ggplot() + 
   geom_sf(aes(fill=n),color = "white") +
   scale_fill_gradient(low = "light blue", high = "dark blue") +
-  ditch_the_axes
+  ditch_the_axes +
+  labs(fill="Number of Listings")+
+  ggtitle("Listing Density by Ward")
 
 df_listing_sum <- listings %>% 
   group_by(neighbourhood, room_type) %>% 
@@ -72,7 +80,14 @@ graph2 <- df_listing_sum %>%
   ggplot(aes(x=reorder(neighbourhood,total),y=sum,fill=room_type)) +
   geom_bar(stat="identity") +
   coord_flip() +
-  theme_minimal()
+  theme_minimal() +
+  labs(
+    title = "Number of Listings per Neighbourhood",
+    subtitle = "By Listing Type",
+    x = "Neighbourhood",
+    y="Number of Listings",
+    fill= "Room Type"
+  )
 
 graph3 <- listings %>%
   plot_mapbox(lat = ~latitude, lon = ~longitude,
@@ -80,12 +95,116 @@ graph3 <- listings %>%
               mode = 'scattermapbox', hoverinfo="price") %>%
               layout(mapbox = list(zoom = 9,
                        center = list(lat = ~median(latitude),
-                                     lon = ~median(longitude))))
+                                     lon = ~median(longitude))),
+                     title = "Map of all Listings",
+                     legend ="Listing Type")
 
-graph1
 ```
 
-```{r, echo = FALSE}
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+#df_sum <- read_csv("data/listings-summarized.csv")
+#ggplot(df_sum, aes(factor(neighbourhood), price)) + geom_violin(aes(fill = factor(neighbourhood)))
+
+
+graphd1 <- ggplot(listings, aes(factor(neighbourhood), price)) + geom_violin(aes(fill = factor(neighbourhood))) + coord_flip() +
+  labs(
+    title = "Average Price per Neighbourhood",
+    x = "Neighbourhood",
+    y="Average Price",
+    fill= "Room Type"
+  )
+
+graphd2 <- ggplot(listings, aes(price, colour = neighbourhood, group = neighbourhood)) + geom_density(fill=NA) 
+
+
+df_sum2 <- listings %>% group_by(neighbourhood, room_type) %>% 
+  summarize(price = mean(price)) %>%
+  tidyr::complete(neighbourhood, room_type = c("Hotel room", "Entire home/apt", 
+                                               "Private room",
+                                               "Shared room"), fill = list(price = 0))
+  
+
+graphd3 <- ggplot(df_sum2, aes(x = neighbourhood, y= price, col = room_type, group = room_type)) + geom_line() + scale_y_log10() + coord_flip() + 
+  labs(y='Average listing price',
+       x = 'Neighbourhood')
+
+calendar_df <- read.csv("data/calendar.csv")
+
+res <- calendar_df %>%
+  group_by(date, available) %>%
+  summarize(count = n()) %>%
+  subset(available != FALSE)
+
+#https://www.r-bloggers.com/calendar-heatmaps-in-ggplot/
+# cal_hotmap_df <- res %>% mutate(year = year(date),
+#          month = month(date, label = TRUE),
+#          wkday = fct_relevel(wday(date, label=TRUE),
+#                              c("Mon", "Tue","Wed","Thu","Fri","Sat","Sun")
+#                              ),
+#          day = day(date))
+# 
+# 
+# 
+# cal_hotmap_df %>%
+#     ggplot(aes(wk, wkday, fill=count)) +
+#       geom_tile(color='black') +
+#       geom_text(aes(label=day), size=3) +
+#       labs(x='',
+#            y='',
+#            title="SPY") +
+#       scale_fill_gradient(low="red", high="green")+
+#       theme(panel.background = element_blank(),
+#             axis.ticks = element_blank(),
+#             axis.text.x = element_blank(),
+#             strip.background = element_rect("grey92")
+#             ) +
+#       facet_grid(year~month, scales="free", space="free")
+
+
+#how many days of the year are available?
+#show calendar hotmap of popular days
+
+
+#per listing, what is the % of the year that it is available? 
+res2 <- calendar_df %>%
+  group_by(listing_id, available, minimum_nights) %>%
+  summarize(avail_perc = round((n()/365)*100)) %>%
+  subset(available != FALSE)
+
+graphd4 <- ggplot(listings, aes(x=neighbourhood, y=minimum_nights)) +
+  geom_boxplot(aes(fill=neighbourhood)) + scale_y_log10() + coord_flip()
+# 
+# #Exploring reviews -- Are there certain characteristics that customers value in a listing?
+# #http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know
+review_df <- read.csv("data/reviews.csv", encoding = "UTF-8")
+
+review_corpus <- Corpus(VectorSource(review_df[1:15000,]$comments))
+
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
+
+review_corpus <- review_corpus %>%
+  tm_map(toSpace, "/") %>%
+  tm_map(toSpace, "@") %>%
+  tm_map(toSpace, "\\|") %>%
+  tm_map(content_transformer(tolower)) %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removeWords, stopwords("English")) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(stripWhitespace)
+
+#Build a term-document matrix
+dtm <- TermDocumentMatrix(review_corpus)
+
+m <- as.matrix(dtm)
+
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+#head(d, 10)
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq,min.freq = 1,max.words=200, random.order=FALSE, rot.per=0.35,colors=brewer.pal(8, "Dark2"))
+```
+
+```{r, echo = FALSE,warning = FALSE}
 cal <- read.csv("data/calendar.csv") %>%
   filter(as.Date(date) < as.Date("2019-11-01")) %>%
   filter(available =="f")
@@ -110,19 +229,30 @@ df_activity <- listings %>% filter(number_of_reviews != 0) %>%
 
 df_minimum_activity <- df_activity %>%
   group_by(neighbourhood,room_type) %>%
-  summarise(average=mean(min_price_per_month))
+  summarise(average=mean(min_price_per_month)) %>%
+  tidyr::complete(neighbourhood, room_type = c("Hotel room", "Entire home/apt", 
+                                               "Private room",
+                                               "Shared room"), fill = list(price = 0))
 
 graph4 <- df_minimum_activity %>% ggplot(aes(x=reorder(neighbourhood,average),y=average,fill=room_type)) +
   geom_bar(stat="identity",position = "dodge") +
   coord_flip() +
-  theme_minimal()
+  theme_minimal() +
+  labs(
+    title = "Average Price per Neighbourhood",
+    x = "Neighbourhood",
+    y="Average Price",
+    fill= "Room Type"
+  )
 
 generateGraphMinPrice <- function(name,colour) {
   df_minimum_activity %>% filter(room_type==name) %>%
     ggplot(aes(x=reorder(neighbourhood,average),y=average,fill=room_type)) +
     geom_bar(stat="identity",position = "dodge",fill=colour) +
     coord_flip() +
-    theme_minimal()
+    theme_minimal() + 
+    labs(x="",
+         y="")
 }
 
 a <- generateGraphMinPrice("Entire home/apt","red")
@@ -130,32 +260,82 @@ b <- generateGraphMinPrice("Hotel room","green")
 c <- generateGraphMinPrice("Private room","cyan")
 d <- generateGraphMinPrice("Shared room","blue")
 #df_amount_listings <- listings %>% distinct(host_id,calculated_host_listings_count)%>% filter(calculated_host_listings_count > 2)
-graph5 <- ggarrange(a,b,c,d+rremove("x.text"),ncol =2,nrow = 2,labels=c("Entire home/apt","Hotel room","Private room","Shared room"),common.legend = TRUE,legend = "bottom")
+graph5 <- ggarrange(a,b,ncol =2,nrow = 1,labels=c("Entire home/apt","Hotel room"),common.legend = TRUE,legend = "bottom")
+
+graph5 <- graph5 %>% annotate_figure(top="Average Price by Room Type",
+                                     left="Neighbourhood",
+                                     bottom = "Average Price")
+graph6 <- ggarrange(c,d,ncol =2,nrow = 1,labels=c("Private Room","Shared Room"),common.legend = TRUE,legend = "bottom")
+
+graph6 <- graph6 %>% annotate_figure(top="Average Price by Room Type",
+                                     left="Neighbourhood",
+                                     bottom = "Average Price")
+```
+# Where are Airbnb's Located?
+
+```{r,echo = FALSE,warning = FALSE}
+graph1
 ```
 
-# graph2
+# Downtown Core
 
-```{r,echo = FALSE}
+```{r,echo = FALSE,warning = FALSE}
 graph2
 ```
 
-# graph3
+# Overview of Listings
 
-```{r,echo = FALSE}
+```{r,echo = FALSE,warning = FALSE}
 graph3
 ```
 
-# graph4
+# Price distribution per neighborhood
+```{r,echo = FALSE,warning = FALSE}
+graphd1
+```
 
-```{r,echo = FALSE}
+# Price density per neighbourhood
+
+```{r,echo = FALSE,warning = FALSE}
+graphd2
+```
+
+# Average Listing Price per Room Types
+
+```{r,echo = FALSE,warning = FALSE}
+graphd3
+```
+
+# Minimum Time to Stay per Neighbourhood
+
+```{r,echo = FALSE,warning = FALSE}
+graphd4
+```
+
+# Airbnb Activity over Time
+
+```{r,echo=FALSE,warning = FALSE}
+library(png)
+library(grid)
+img <- readPNG("dp.png")
+grid.raster(img)
+```
+
+
+# How much exactly are hosts making?
+
+```{r,echo = FALSE,warning = FALSE}
 graph4
 ```
 
-# graph5
+# Break Down by Type of Area
 
-```{r,echo = FALSE}
+```{r,echo = FALSE,warning = FALSE}
 graph5
+graph6
 ```
+
+# Any Questions?
 
 # Appendix: sessionInfo
 
