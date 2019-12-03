@@ -111,10 +111,16 @@ graphd1 <- ggplot(listings, aes(factor(neighbourhood), price)) + geom_violin(aes
     title = "Average Price per Neighbourhood",
     x = "Neighbourhood",
     y="Average Price",
-    fill= "Room Type"
+    fill= "Neighbourhoods"
   )
 
-graphd2 <- ggplot(listings, aes(price, colour = neighbourhood, group = neighbourhood)) + geom_density(fill=NA) 
+graphd2 <- ggplot(listings, aes(price, colour = neighbourhood, group = neighbourhood)) + geom_density(fill=NA)  +
+  labs(
+    title = "Price density per neighbourhood",
+    x = "Price",
+    y="Price density",
+    colour= "Neighbourhoods"
+  )
 
 
 df_sum2 <- listings %>% group_by(neighbourhood, room_type) %>% 
@@ -126,7 +132,8 @@ df_sum2 <- listings %>% group_by(neighbourhood, room_type) %>%
 
 graphd3 <- ggplot(df_sum2, aes(x = neighbourhood, y= price, col = room_type, group = room_type)) + geom_line() + scale_y_log10() + coord_flip() + 
   labs(y='Average listing price',
-       x = 'Neighbourhood')
+       x = 'Neighbourhood',
+       col = "Room type")
 
 calendar_df <- read.csv("data/calendar.csv")
 
@@ -172,7 +179,10 @@ res2 <- calendar_df %>%
   subset(available != FALSE)
 
 graphd4 <- ggplot(listings, aes(x=neighbourhood, y=minimum_nights)) +
-  geom_boxplot(aes(fill=neighbourhood)) + scale_y_log10() + coord_flip()
+  geom_boxplot(aes(fill=neighbourhood)) + scale_y_log10() + coord_flip() + 
+  labs(x= "Neighbourhood",
+      y= "Minimum nights",
+      fill= "Neighbourhood") 
 # 
 # #Exploring reviews -- Are there certain characteristics that customers value in a listing?
 # #http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know
